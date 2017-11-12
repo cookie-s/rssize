@@ -1,0 +1,14 @@
+{
+  "name": "rssize",
+  "version": "0.0.0",
+  "description": "rssize",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "GOPATH=`pwd`/gopath gcloud app deploy src/app.yaml"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cookie-s/rssize.git"
+  },
+  "author": "cookie-s"
+}

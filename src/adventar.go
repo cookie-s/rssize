@@ -5,15 +5,25 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/gorilla/feeds"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/engine/standard"
+	"github.com/mjibson/goon"
 	"github.com/pkg/errors"
 
 	"google.golang.org/appengine"
+	"google.golang.org/appengine/datastore"
 	"google.golang.org/appengine/urlfetch"
 )
+
+type AdventarLastUpdated struct {
+	EntryID int64     `datastore:"-" goon:"id"`
+	Updated time.Time `datastore:"updated"`
+}
 
 type Entry struct {
 	ID      int    `json:"id"`
@@ -89,14 +99,12 @@ func getData(ctx context.Context, calid string) (Data, error) {
 	return Data{PageTitle: title, Desc: desc, PageURL: url, PropData: pdata}, nil
 }
 
-func adventarHandler(c echo.Context) error {
+func AdventarHandler(c echo.Context) error {
 	calid_s := c.Param("calid")
-	/*
-		calid, err := strconv.Atoi(calid_s)
-		if err != nil {
-			return c.String(http.StatusNotFound, "Not Found")
-		}
-	*/
+	_, err := strconv.Atoi(calid_s)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Not Found")
+	}
 
 	req := c.Request().(*standard.Request).Request
 	ctx := appengine.NewContext(req)
@@ -106,5 +114,52 @@ func adventarHandler(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Error")
 	}
 
-	return c.String(http.StatusOK, data.PropData.Entries[0].Title)
+	feed := &feeds.Feed{
+		Title:       data.PageTitle,
+		Link:        &feeds.Link{Href: data.PageURL},
+		Description: data.Desc,
+		Created:     time.Now(),
+	}
+
+	g := goon.NewGoon(req)
+	entries := data.PropData.Entries
+	for _, entry := range entries {
+		if entry.URL != "" {
+			updated := time.Now()
+
+			q := AdventarLastUpdated{
+				EntryID: int64(entry.ID),
+			}
+			err := g.Get(&q)
+			if err == nil {
+				updated = q.Updated
+			} else if err == datastore.ErrNoSuchEntity {
+				store := AdventarLastUpdated{
+					EntryID: int64(entry.ID),
+					Updated: time.Now(),
+				}
+				if _, err := g.Put(&store); err != nil {
+					log.Println(err)
+				}
+			} else if err != nil {
+				log.Println(err)
+				continue // cont
+			}
+
+			item := &feeds.Item{
+				Title:   entry.Title,
+				Link:    &feeds.Link{Href: entry.URL},
+				Created: updated,
+			}
+			feed.Items = append(feed.Items, item)
+		}
+	}
+
+	rss, err := feed.ToRss()
+	if err != nil {
+		log.Println(err)
+		return c.String(http.StatusInternalServerError, "Error")
+	}
+
+	return c.Blob(http.StatusOK, "text/xml", []byte(rss))
 }

@@ -13,7 +13,7 @@ func init() {
 		return c.String(http.StatusOK, "OK")
 	})
 
-	e.GET("/api/adventar/:calid", adventarHandler)
+	e.GET("/api/adventar/:calid", AdventarHandler)
 }
 
 func createMux() *echo.Echo {
