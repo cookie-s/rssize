@@ -1,8 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -17,6 +22,7 @@ import (
 
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/datastore"
+	"google.golang.org/appengine/memcache"
 	"google.golang.org/appengine/urlfetch"
 )
 
@@ -78,13 +84,36 @@ func getPropData(doc *goquery.Document) (PropData, error) {
 func getData(ctx context.Context, calid string) (Data, error) {
 	url := "https://adventar.org/calendars/" + calid
 
-	client := urlfetch.Client(ctx)
-	resp, err := client.Get(url)
-	if err != nil {
-		return Data{}, errors.Wrapf(err, "client.Get fail %s", calid)
+	var reader io.Reader
+
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte("rssize"+url)))
+	cache, err := memcache.Get(ctx, hash)
+	if err == nil {
+		reader = bytes.NewReader(cache.Value)
+	} else if err == memcache.ErrCacheMiss {
+		client := urlfetch.Client(ctx)
+		resp, err := client.Get(url)
+		if err != nil {
+			return Data{}, errors.Wrapf(err, "client.Get fail %s", calid)
+		}
+		defer resp.Body.Close()
+		val, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return Data{}, errors.Wrapf(err, "ReadAll fail %s", calid)
+		}
+		cache := memcache.Item{
+			Key:        hash,
+			Value:      val,
+			Expiration: time.Minute * 30,
+		}
+		_ = memcache.Add(ctx, &cache)
+
+		reader = bytes.NewReader(val)
+	} else {
+		return Data{}, errors.Wrapf(err, "Get memcache fail %s", calid)
 	}
 
-	doc, err := goquery.NewDocumentFromResponse(resp)
+	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
 		return Data{}, errors.Wrapf(err, "goquery parse fail %s", calid)
 	}
@@ -124,35 +153,37 @@ func AdventarHandler(c echo.Context) error {
 	g := goon.NewGoon(req)
 	entries := data.PropData.Entries
 	for _, entry := range entries {
-		if entry.URL != "" {
-			updated := time.Now()
-
-			q := AdventarLastUpdated{
-				EntryID: int64(entry.ID),
-			}
-			err := g.Get(&q)
-			if err == nil {
-				updated = q.Updated
-			} else if err == datastore.ErrNoSuchEntity {
-				store := AdventarLastUpdated{
-					EntryID: int64(entry.ID),
-					Updated: time.Now(),
-				}
-				if _, err := g.Put(&store); err != nil {
-					log.Println(err)
-				}
-			} else if err != nil {
-				log.Println(err)
-				continue // cont
-			}
-
-			item := &feeds.Item{
-				Title:   entry.Title,
-				Link:    &feeds.Link{Href: entry.URL},
-				Created: updated,
-			}
-			feed.Items = append(feed.Items, item)
+		if entry.URL == "" {
+			continue
 		}
+
+		updated := time.Now()
+
+		q := AdventarLastUpdated{
+			EntryID: int64(entry.ID),
+		}
+		err := g.Get(&q)
+		if err == nil {
+			updated = q.Updated
+		} else if err == datastore.ErrNoSuchEntity {
+			store := AdventarLastUpdated{
+				EntryID: int64(entry.ID),
+				Updated: time.Now(),
+			}
+			if _, err := g.Put(&store); err != nil {
+				log.Println(err)
+			}
+		} else if err != nil {
+			log.Println(err)
+			continue // cont
+		}
+
+		item := &feeds.Item{
+			Title:   entry.Title,
+			Link:    &feeds.Link{Href: entry.URL},
+			Created: updated,
+		}
+		feed.Items = append(feed.Items, item)
 	}
 
 	rss, err := feed.ToRss()
