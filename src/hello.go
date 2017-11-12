@@ -9,9 +9,11 @@ import (
 )
 
 func init() {
-	e.GET("/hello", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello World")
+	e.GET("/", func(c echo.Context) error {
+		return c.String(http.StatusOK, "OK")
 	})
+
+	e.GET("/api/adventar/:calid", adventarHandler)
 }
 
 func createMux() *echo.Echo {

@@ -2,6 +2,24 @@
 
 
 [[projects]]
+  name = "github.com/PuerkitoBio/goquery"
+  packages = ["."]
+  revision = "e1271ee34c6a305e38566ecd27ae374944907ee9"
+  version = "v1.1.0"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/andybalholm/cascadia"
+  packages = ["."]
+  revision = "349dd0209470eabd9514242c688c403c0926d266"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  revision = "1643683e1b54a9e88ad26d98f81400c8c9d9f4f9"
+
+[[projects]]
   name = "github.com/labstack/echo"
   packages = [".","context","engine","engine/standard","log"]
   revision = "e08070379af60f5b9c0fb5bb2d1527ba9624fe43"
@@ -26,6 +44,12 @@
   version = "v0.0.3"
 
 [[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/valyala/bytebufferpool"
   packages = ["."]
@@ -40,7 +64,7 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/net"
-  packages = ["context"]
+  packages = ["context","html","html/atom"]
   revision = "a337091b0525af65de94df2eb7e98bd9962dcbe2"
 
 [[projects]]
@@ -49,9 +73,15 @@
   packages = ["unix"]
   revision = "1e2299c37cc91a509f1b12369872d27be0ce98a6"
 
+[[projects]]
+  name = "google.golang.org/appengine"
+  packages = [".","internal","internal/app_identity","internal/base","internal/datastore","internal/log","internal/modules","internal/remote_api","internal/urlfetch","urlfetch"]
+  revision = "150dc57a1b433e64154302bdc40b6bb8aefa313a"
+  version = "v1.0.0"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "e5336f8f3ff662c7fd9d15a9556b2cc59bc057aba0aef257e208796d0dc79bc3"
+  inputs-digest = "d940a8a63bd84f3fa3e9757e7c8e7ac77914e0603527c2aa56d5f003e7ecdec8"
   solver-name = "gps-cdcl"
   solver-version = 1
